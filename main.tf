@@ -28,12 +28,12 @@ resource "kind_cluster" "cluster" {
       extra_port_mappings {
         // istio http2
         container_port = 30000
-        host_port      = 80
+        host_port      = 8080
       }
       extra_port_mappings {
         // istio https
         container_port = 30001
-        host_port      = 443
+        host_port      = 8443
       }
       extra_port_mappings {
         // istio status-port
