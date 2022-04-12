@@ -1,45 +1,37 @@
 resource "kind_cluster" "cluster" {
   name            = "cluster"
-  kubeconfig_path = "${path.module}/files/config"
+  kubeconfig_path = "${path.module}/files/config.yaml"
 
   kind_config {
     kind        = "Cluster"
     api_version = "kind.x-k8s.io/v1alpha4"
     containerd_config_patches = [
       <<-TOML
-            [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${local.registry_port}"]
-                endpoint = ["http://${local.registry_name}:5000"]
+            [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${var.registry_port}"]
+                endpoint = ["http://${local.registry_name}:${local.internal_registry_port}"]
             TOML
     ]
 
     node {
       role = "control-plane"
 
-      kubeadm_config_patches = []
-    }
-
-    node {
-      role = "worker"
-
       kubeadm_config_patches = [
-        file("${path.module}/files/worker-ingress.yaml"),
+        yamlencode({ kind : "InitConfiguration", nodeRegistration : { kubeletExtraArgs : { node-labels : "ingress-ready=true" } } })
       ]
 
-      extra_port_mappings {
-        // istio http2
-        container_port = 30000
-        host_port      = 8080
+      dynamic "extra_port_mappings" {
+        for_each = var.cluster_ports
+        content {
+          container_port = extra_port_mappings.value.container
+          host_port      = extra_port_mappings.value.host
+        }
       }
-      extra_port_mappings {
-        // istio https
-        container_port = 30001
-        host_port      = 8443
-      }
-      extra_port_mappings {
-        // istio status-port
-        container_port = 30002
-        host_port      = 15021
-      }
+    }
+    node {
+      role = "worker"
+    }
+    node {
+      role = "worker"
     }
   }
 
@@ -56,8 +48,8 @@ resource "docker_container" "registry" {
   restart = "always"
 
   ports {
-    internal = local.registry_port
-    external = 5000
+    internal = local.internal_registry_port
+    external = var.registry_port
   }
 
   networks_advanced {
@@ -66,8 +58,8 @@ resource "docker_container" "registry" {
 
   volumes {
     container_path = "/var/lib/registry"
-    host_path = abspath("${path.module}/files/registry")
-    read_only = false
+    host_path      = abspath("${path.module}/files/registry")
+    read_only      = false
   }
 
   depends_on = [kind_cluster.cluster]
