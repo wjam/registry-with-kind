@@ -1,5 +1,0 @@
-# https://kind.sigs.k8s.io/docs/user/configuration/
-kind: JoinConfiguration
-nodeRegistration:
-  kubeletExtraArgs:
-    node-labels: "ingress-ready=true"

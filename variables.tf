@@ -21,6 +21,12 @@ variable "cluster_ports" {
   description = "Ports that should be exposed by the cluster for ingress traffic"
 }
 
+variable "workers" {
+  type        = number
+  description = "Number of worker nodes to have"
+  default     = 2
+}
+
 locals {
   internal_registry_port = 5000
   registry_name          = "kind-registry"
