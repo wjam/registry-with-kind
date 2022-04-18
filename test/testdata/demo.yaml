@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: foo-app
+  namespace: default
+  labels:
+    app: foo-app
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: foo-app
+      labels:
+        app: foo-app
+    spec:
+      containers:
+        - name: foo-app
+          image: __IMAGE__
+          imagePullPolicy: IfNotPresent
+          args:
+            - "-text=foo"
+          ports:
+            - containerPort: 5678
+          readinessProbe:
+            httpGet:
+              port: 5678
+              path: /
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 0
+  selector:
+    matchLabels:
+      app: foo-app
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: foo-service
+  namespace: default
+spec:
+  selector:
+    app: foo-app
+  ports:
+    # Default port used by the image
+    - port: 5678
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: example-ingress
+  namespace: default
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - pathType: Prefix
+            path: "/foo"
+            backend:
+              service:
+                name: foo-service
+                port:
+                  number: 5678

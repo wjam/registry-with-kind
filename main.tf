@@ -58,10 +58,15 @@ resource "docker_container" "registry" {
   }
 
   volumes {
+    volume_name    = docker_volume.registry.name
     container_path = "/var/lib/registry"
-    host_path      = abspath("${path.module}/files/registry")
     read_only      = false
   }
 
   depends_on = [kind_cluster.cluster]
+}
+
+# TODO this would stop pushed images from living longer than the cluster, but pollutes the Docker VM disk...
+resource "docker_volume" "registry" {
+  name = "${local.registry_name}-store"
 }
