@@ -9,6 +9,6 @@ output "ingress_ports" {
 }
 
 output "registry_url" {
-  value       = "localhost:${var.registry_port}"
+  value       = var.registry_port == null ? "" : "localhost:${var.registry_port}"
   description = "URL to use to push images into cluster - e.g. docker tag gcr.io/google-samples/hello-app:1.0 <registry_url>/hello-app:1.0; docker push <registry_url>/hello-app:1.0"
 }

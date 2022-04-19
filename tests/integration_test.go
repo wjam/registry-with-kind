@@ -23,33 +23,9 @@ import (
 // TestBasic will verify that traffic can ingress into the cluster and the cluster can use the local container registry
 func TestBasic(t *testing.T) {
 	// Remember that you can skip any particular stage by setting `SKIP_<name>` environment variable
-	dir := test_structure.CopyTerraformFolderToTemp(t, "..", "examples/basic")
-
-	t.Logf("Terraform directory is %s", dir)
-
-	test_structure.RunTestStage(t, "CONFIG", func() {
-		test_structure.SaveTerraformOptions(t, dir, &terraform.Options{
-			TerraformDir: dir,
-			Vars: map[string]interface{}{
-				"registry_port": k8s.GetAvailablePort(t),
-				"http_port":     k8s.GetAvailablePort(t),
-			},
-		})
-	})
-
-	test_structure.RunTestStage(t, "INIT", func() {
-		options := test_structure.LoadTerraformOptions(t, dir)
-		terraform.Init(t, options)
-	})
-
-	test_structure.RunTestStage(t, "APPLY", func() {
-		options := test_structure.LoadTerraformOptions(t, dir)
-		terraform.ApplyAndIdempotent(t, options)
-	})
-
-	defer test_structure.RunTestStage(t, "DESTROY", func() {
-		options := test_structure.LoadTerraformOptions(t, dir)
-		terraform.Destroy(t, options)
+	dir := setup(t, "examples/basic", map[string]interface{}{
+		"registry_port": k8s.GetAvailablePort(t),
+		"http_port":     k8s.GetAvailablePort(t),
 	})
 
 	test_structure.RunTestStage(t, "TEST", func() {
@@ -102,4 +78,53 @@ func TestBasic(t *testing.T) {
 
 		http_helper.HttpGetWithValidation(t, fmt.Sprintf("http://localhost:%d/foo", ports["http"]["host"]), nil, 200, "foo")
 	})
+}
+
+// TestRepoOptional will verify that the registry part is optional
+func TestRepoOptional(t *testing.T) {
+	// Remember that you can skip any particular stage by setting `SKIP_<name>` environment variable
+	dir := setup(t, "examples/registry_optional", map[string]interface{}{
+		"http_port": k8s.GetAvailablePort(t),
+	})
+
+	test_structure.RunTestStage(t, "TEST", func() {
+		tfOptions := test_structure.LoadTerraformOptions(t, dir)
+		k8sOptions := &k8s.KubectlOptions{
+			ConfigPath: terraform.Output(t, tfOptions, "kubeconfig"),
+		}
+
+		k8s.AreAllNodesReady(t, k8sOptions)
+	})
+}
+
+func setup(t *testing.T, moduleDir string, vars map[string]interface{}) string {
+	dir := test_structure.CopyTerraformFolderToTemp(t, "..", moduleDir)
+
+	t.Logf("Terraform directory is %s", dir)
+
+	test_structure.RunTestStage(t, "CONFIG", func() {
+		test_structure.SaveTerraformOptions(t, dir, &terraform.Options{
+			TerraformDir: dir,
+			Vars:         vars,
+		})
+	})
+
+	test_structure.RunTestStage(t, "INIT", func() {
+		options := test_structure.LoadTerraformOptions(t, dir)
+		terraform.Init(t, options)
+	})
+
+	t.Cleanup(func() {
+		test_structure.RunTestStage(t, "DESTROY", func() {
+			options := test_structure.LoadTerraformOptions(t, dir)
+			terraform.Destroy(t, options)
+		})
+	})
+
+	test_structure.RunTestStage(t, "APPLY", func() {
+		options := test_structure.LoadTerraformOptions(t, dir)
+		terraform.ApplyAndIdempotent(t, options)
+	})
+
+	return dir
 }
