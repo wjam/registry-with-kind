@@ -1,4 +1,4 @@
-module github.com/wjam/registry-with-kind/test
+module github.com/wjam/registry-with-kind/tests
 
 go 1.18
 
